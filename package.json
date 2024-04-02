@@ -1,0 +1,39 @@
+{
+  "name": "stop-server",
+  "description": "Server for the Stop game",
+  "author": "Luiz Fernando F. G. Valle <luizffgv10@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/luizffgv/stop-server/issues"
+  },
+  "dependencies": {
+    "@types/express": "^4.17.21",
+    "body-parser": "^1.20.2",
+    "express": "^4.19.2",
+    "ws": "^8.16.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.2",
+    "@types/ws": "^8.5.10",
+    "eslint": "^8.57.0",
+    "eslint-plugin-jsdoc": "^48.2.2",
+    "eslint-plugin-unicorn": "^51.0.1",
+    "globals": "^15.0.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.3",
+    "typescript-eslint": "^7.5.0"
+  },
+  "homepage": "https://github.com/luizffgv/stop-server#readme",
+  "license": "MIT",
+  "main": "src/index.js",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luizffgv/stop-server.git"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "lint": "eslint . "
+  },
+  "type": "module"
+}
