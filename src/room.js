@@ -158,21 +158,19 @@ export default class Room {
 
     clearTimeout(this.#noPlayerTimeout);
 
+    this.#broadcast({
+      type: "player-joined",
+      content: {
+        name,
+      },
+    });
+
     const newPlayer = new Player(name, this, ws);
     this.#players.push(newPlayer);
     newPlayer.send({
       type: "room-players",
       content: this.#players.map((p) => p.name),
     });
-
-    for (const player of this.#players) {
-      player.send({
-        type: "player-joined",
-        content: {
-          name,
-        },
-      });
-    }
   }
 
   /**
