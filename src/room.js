@@ -288,8 +288,6 @@ export default class Room {
             scores,
           },
         });
-
-        this.#close();
       };
       this.#voteManager.addEventListener(
         "voting-ended",
