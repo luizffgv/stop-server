@@ -171,6 +171,7 @@ export default class Room {
       type: "room-players",
       content: this.#players.map((p) => p.name),
     });
+    newPlayer.send({ type: "room-categories", content: this.#categories });
   }
 
   /**

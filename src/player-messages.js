@@ -16,6 +16,13 @@ export const roomPlayersSchema = z.object({
 });
 /** @typedef {z.infer<typeof roomPlayersSchema>} RoomPlayersMessage */
 
+/** Message sent to tell the player what themes are in the room. */
+export const roomCategoriesSchema = z.object({
+  type: z.literal("room-categories"),
+  content: z.array(z.string()).describe("List of categories in the room"),
+});
+/** @typedef {z.infer<typeof roomCategoriesSchema>} RoomCategoriesMessage */
+
 /** Message sent when the round is starting. */
 export const roundStartingSchema = z.object({
   type: z.literal("round-starting"),
@@ -96,6 +103,7 @@ export const playerRemovedSchema = z.object({
 export const toPlayerMessageSchema = z.union([
   playerJoinedSchema,
   roomPlayersSchema,
+  roomCategoriesSchema,
   roundStartingSchema,
   roundStartedSchema,
   roundStoppingSchema,
