@@ -1,3 +1,4 @@
+import CloseCodes from "./close-codes.js";
 import { fromPlayerMessageSchema } from "./player-messages.js";
 
 export default class Player {
@@ -158,7 +159,7 @@ export default class Player {
       }
       case "player-removed": {
         if (message.content.name === this.#name) {
-          this.#ws.close(1000, message.content.reason);
+          this.#ws.close(CloseCodes.PLAYER_REMOVED, message.content.reason);
         }
         break;
       }

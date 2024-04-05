@@ -2,6 +2,7 @@ import { Router } from "express";
 import app from "../app.js";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
+import CloseCodes from "../close-codes.js";
 
 const router = Router();
 
@@ -50,19 +51,19 @@ router.get("/join", (request, response) => {
   joinWSS.handleUpgrade(request, request.socket, Buffer.alloc(0), (ws) => {
     const room = app.rooms.get(body.data.room_id);
     if (room == undefined) {
-      ws.close(1008, "No room with the given ID");
+      ws.close(CloseCodes.NO_ROOM_WITH_ID, "No room with the given ID");
       return;
     }
 
     if (room.password != body.data.room_password) {
-      ws.close(1008, "Wrong password");
+      ws.close(CloseCodes.WRONG_ROOM_PASSWORD, "Wrong password");
       return;
     }
 
     try {
       room.addPlayer(body.data.nickname, ws);
     } catch {
-      ws.close(1008, "Name already in use");
+      ws.close(CloseCodes.NICKNAME_ALREADY_IN_ROOM, "Name already in use");
     }
   });
 });
