@@ -156,7 +156,10 @@ export default class Room {
       throw new Error("Player with the same name already in the room");
     }
 
-    clearTimeout(this.#noPlayerTimeout);
+    if (this.#noPlayerTimeout != undefined) {
+      clearTimeout(this.#noPlayerTimeout);
+      this.#noPlayerTimeout = undefined;
+    }
 
     this.#broadcast({
       type: "player-joined",
