@@ -12,7 +12,7 @@ import VoteManager from "./vote-manager.js";
 
 export default class Room {
   /**
-   * Timeout to stop the room if no player has joined after a certain time.
+   * Timeout to stop the room if there are no players for a certain time.
    * @type {NodeJS.Timeout | undefined}
    */
   #noPlayerTimeout = undefined;
@@ -198,6 +198,11 @@ export default class Room {
     });
 
     this.#players = this.#players.filter((p) => p !== player);
+
+    if (this.#players.length === 0)
+      this.#noPlayerTimeout = setTimeout(() => {
+        this.#close();
+      }, 10e3);
   }
 
   /**
