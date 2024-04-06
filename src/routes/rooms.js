@@ -35,12 +35,6 @@ const joinWSS = new WebSocketServer({
   noServer: true,
 });
 
-// Ping player clients so we can detect when they lose connection.
-// The timeout logic is implemented elsewhere.
-setInterval(() => {
-  // for (const client of joinWSS.clients) client.ping();
-}, 10e3);
-
 router.get("/join", (request, response) => {
   if (request.headers["upgrade"] !== "websocket")
     return response.status(400).send("Upgrade to WebSocket first");
