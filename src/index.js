@@ -1,6 +1,7 @@
 import express from "express";
 import roomsRouter from "./routes/rooms.js";
 import bodyParser from "body-parser";
+import { addJoinHandler } from "./ws/join.js";
 
 const PORT = Number.parseInt(process.env["PORT"] || "3000");
 
@@ -26,4 +27,5 @@ server.use((_, response, next) => {
 
 server.use("/rooms", roomsRouter);
 
-server.listen(PORT);
+const httpServer = server.listen(PORT);
+addJoinHandler(httpServer, /^\/?rooms\/join\/?\?/);
