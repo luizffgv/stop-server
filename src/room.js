@@ -227,7 +227,7 @@ export default class Room {
       );
     }
 
-    const duration = this.#categories.length * 5e3;
+    const duration = this.#categories.length * 10e3;
 
     setTimeout(() => {
       this.#broadcast({ type: "round-started", content: { letter, duration } });
@@ -240,7 +240,7 @@ export default class Room {
       setTimeout(() => {
         this.#stopAvailable = true;
         this.#broadcast({ type: "stop-available" });
-      }, duration / 2);
+      }, duration / 3);
     }, 5e3);
   }
 
