@@ -44,7 +44,7 @@ export default class VoteManager extends EventTarget {
    */
   #beginVotingFor(category, duration) {
     const answers = new Set(
-      this.#players.flatMap((player) => player.answers[category] ?? [])
+      this.#players.flatMap((player) => player.answers.get(category) ?? [])
     );
 
     for (const player of this.#players) {
@@ -68,7 +68,7 @@ export default class VoteManager extends EventTarget {
   #calculateCategoryScores(category) {
     const answers = [
       ...new Set(
-        this.#players.flatMap((player) => player.answers[category] ?? [])
+        this.#players.flatMap((player) => player.answers.get(category) ?? [])
       ),
     ];
 
@@ -78,7 +78,7 @@ export default class VoteManager extends EventTarget {
 
     const playerScores = new Map(
       this.#players.map((player) => {
-        const answer = player.answers[category];
+        const answer = player.answers.get(category);
         const score = answer ? answerScores.get(answer) ?? 0 : 0;
 
         return [player, score];

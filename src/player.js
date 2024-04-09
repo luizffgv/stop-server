@@ -27,9 +27,9 @@ export default class Player {
 
   /**
    * Answers from the player client.
-   * @type {Record<string, string>}
+   * @type {Map<string, string>}
    */
-  answers = {};
+  answers = new Map();
 
   /**
    * Votes for the player client.
@@ -94,7 +94,12 @@ export default class Player {
               `Player tried to change answer for a category that is not in the room: ${data.data.content.category}`
             );
 
-          this.answers[data.data.content.category] = data.data.content.answer;
+          const trimmedAnswer = data.data.content.answer.trim();
+
+          if (trimmedAnswer.length > 0)
+            this.answers.set(data.data.content.category, trimmedAnswer);
+          else this.answers.delete(data.data.content.category);
+
           break;
         }
         case "change-answer-vote": {
@@ -150,7 +155,7 @@ export default class Player {
 
     switch (message.type) {
       case "round-starting": {
-        this.answers = {};
+        this.answers.clear();
         break;
       }
       case "category-vote-started": {
