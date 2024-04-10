@@ -3,6 +3,57 @@ import Player from "./player.js";
 import VoteManager from "./vote-manager.js";
 
 /**
+ * The room is in the pre-game lobby.
+ * @typedef {object} LobbyRoomState
+ * @property {"lobby"} type - Name of the state.
+ */
+
+/**
+ * The round is starting.
+ * @typedef {object} RoundStartingRoomState
+ * @property {"round-starting"} type - Name of the state.
+ */
+
+/**
+ * The round is being answered.
+ * @typedef {object} RoundAnsweringRoomState
+ * @property {"round-answering"} type - Name of the state.
+ * @property {boolean | undefined} [stopAvailable] - Whether a player can
+ * request a stop.
+ * @property {NodeJS.Timeout} stopTimeout - Timeout for the automatic round stop.
+ */
+
+/**
+ * The answering period is ending. This state exists so players have a little
+ * extra time to send their answers.
+ * @typedef {object} RoundAnsweringStoppingRoomState
+ * @property {"round-answering-stopping"} type - Name of the state.
+ */
+
+/**
+ * The voting is in progress.
+ * @typedef {object} VotingRoomState
+ * @property {"voting"} type - Name of the state.
+ * @property {() => void} cleanup - Function to be called when closing the room.
+ */
+
+/**
+ * The room is showing the leaderboard.
+ * @typedef {object} LeaderboardRoomState
+ * @property {"leaderboard"} type - Name of the state.
+ */
+
+/**
+ * The room has been closed.
+ * @typedef {object} ClosedRoomState
+ * @property {"closed"} type - Name of the state.
+ */
+
+/**
+ * @typedef {LeaderboardRoomState | LobbyRoomState | RoundStartingRoomState | RoundAnsweringRoomState | RoundAnsweringStoppingRoomState | VotingRoomState | ClosedRoomState} RoomState
+ */
+
+/**
  * @typedef {object} RoomParameters
  * @property {string} password - Password of the room.
  * @property {Iterable<string>} letters - Available letters of the alphabet to
@@ -12,42 +63,16 @@ import VoteManager from "./vote-manager.js";
 
 export default class Room {
   /**
+   * Current state of the room.
+   * @type {RoomState}
+   */
+  #state;
+
+  /**
    * Timeout to stop the room if there are no players for a certain time.
    * @type {NodeJS.Timeout | undefined}
    */
   #noPlayerTimeout = undefined;
-
-  /** @type {((event: Event) => void) | undefined} */
-  #votingEndedListener;
-
-  /**
-   * Whether a round is in progress, including the time after requesting a start
-   * and before the round has really started.
-   * @type {boolean}
-   */
-  #roundInProgress = false;
-
-  /**
-   * Automatic timeout to stop the round after a certain time.
-   * @type {NodeJS.Timeout | undefined}
-   */
-  #roundStopTimeout = undefined;
-
-  /**
-   * Period while the round is stopping before it actually stops, to allow
-   * players to submit their final responses.
-   */
-  #roundStopping = false;
-
-  /**
-   * Whether players can request a stop. This is available after a certain time
-   * has passed in the round.
-   * @type {boolean}
-   */
-  #stopAvailable = false;
-
-  /** @type {VoteManager | undefined} */
-  #voteManager;
 
   /** @type {string} */
   #password;
@@ -93,6 +118,7 @@ export default class Room {
     this.#password = parameters.password;
     this.#letters = new Set(parameters.letters);
     this.#categories = [...parameters.categories];
+    this.#state = { type: "lobby" };
 
     this.#noPlayerTimeout = setTimeout(() => {
       this.#close();
@@ -114,22 +140,15 @@ export default class Room {
    * Closes the room and removes it from the list of rooms.
    */
   #close() {
-    if (this.#roundStopTimeout != undefined) {
-      clearTimeout(this.#roundStopTimeout);
-      this.#roundStopTimeout = undefined;
-    }
+    if (this.#state.type === "round-answering")
+      clearTimeout(this.#state.stopTimeout);
+
     if (this.#noPlayerTimeout != undefined) {
       clearTimeout(this.#noPlayerTimeout);
       this.#noPlayerTimeout = undefined;
     }
 
-    if (this.#votingEndedListener != undefined)
-      this.#voteManager?.removeEventListener(
-        "voting-ended",
-        this.#votingEndedListener
-      );
-    this.#voteManager?.stop();
-    this.#voteManager = undefined;
+    if (this.#state.type === "voting") this.#state.cleanup();
 
     for (const player of this.#players) {
       this.#broadcast({
@@ -142,6 +161,7 @@ export default class Room {
     }
     this.#players = [];
 
+    this.#state = { type: "closed" };
     app.rooms.remove(this);
   }
 
@@ -211,12 +231,11 @@ export default class Room {
    * @throws {Error} If a round is already in progress.
    */
   startRound() {
-    if (this.#roundInProgress) throw new Error("Round already in progress");
+    if (this.#state.type != "lobby" && this.#state.type != "leaderboard")
+      throw new Error("Round already in progress");
 
+    this.#state = { type: "round-starting" };
     this.#broadcast({ type: "round-starting" });
-
-    this.#roundInProgress = true;
-    this.#stopAvailable = false;
 
     const letter = [...this.#letters][
       Math.floor(Math.random() * this.#letters.size)
@@ -230,15 +249,18 @@ export default class Room {
     const duration = this.#categories.length * 10e3;
 
     setTimeout(() => {
+      this.#state = {
+        type: "round-answering",
+        stopTimeout: setTimeout(() => {
+          this.stopRound();
+        }, duration),
+      };
       this.#broadcast({ type: "round-started", content: { letter, duration } });
 
-      this.#roundStopTimeout = setTimeout(() => {
-        this.#roundStopTimeout = undefined;
-        this.stopRound();
-      }, duration);
-
       setTimeout(() => {
-        this.#stopAvailable = true;
+        if (this.#state.type !== "round-answering")
+          throw new Error("Unexpected round state");
+        this.#state.stopAvailable = true;
         this.#broadcast({ type: "stop-available" });
       }, duration / 3);
     }, 5e3);
@@ -252,35 +274,27 @@ export default class Room {
    * request a stop.
    */
   stopRound(requester) {
-    if (!this.#roundInProgress)
-      throw new Error("Can't stop a round that's not in progress.");
+    if (this.#state.type !== "round-answering")
+      throw new Error("Can't stop a round that's not in answering state.");
 
-    if (requester != undefined && !this.#stopAvailable)
+    if (requester != undefined && !this.#state.stopAvailable)
       throw new Error("Requesting a stop is not available yet.");
 
-    if (this.#roundStopping)
-      throw new Error("Can't stop a round that's already stopping.");
+    clearTimeout(this.#state.stopTimeout);
 
-    if (this.#roundStopTimeout != undefined)
-      clearTimeout(this.#roundStopTimeout);
-
-    this.#stopAvailable = false;
-    this.#roundStopping = true;
-
+    this.#state = { type: "round-answering-stopping" };
     this.#broadcast({
       type: "round-stopping",
       content: { requester: requester?.name },
     });
 
     setTimeout(() => {
-      this.#roundStopping = false;
+      const voteManager = new VoteManager(this.#players, this.#categories);
 
-      this.#voteManager = new VoteManager(this.#players, this.#categories);
-      this.#votingEndedListener = (_event) => {
-        this.#voteManager = undefined;
-
-        this.#roundInProgress = false;
-
+      // Haven't found a way to silence this warning and still have
+      // removeEventListener work.
+      // eslint-disable-next-line unicorn/consistent-function-scoping
+      const votingEndedListener = (/** @type {Event} */ _event) => {
         const event =
           /** @type {import("./vote-manager.js").VotingEndedEvent} */ (_event);
 
@@ -290,6 +304,7 @@ export default class Room {
           scores[key.name] = value;
         }
 
+        this.#state = { type: "leaderboard" };
         this.#broadcast({
           type: "voting-ended",
           content: {
@@ -297,12 +312,24 @@ export default class Room {
           },
         });
       };
-      this.#voteManager.addEventListener(
-        "voting-ended",
-        this.#votingEndedListener,
-        { once: true }
-      );
-      this.#voteManager.start();
+
+      voteManager.addEventListener("voting-ended", votingEndedListener, {
+        once: true,
+      });
+      voteManager.start();
+
+      this.#state = {
+        type: "voting",
+        cleanup: () => {
+          if (this.#state.type !== "voting")
+            throw new Error(
+              `Unexpected round state on cleanup: ${this.#state.type}`
+            );
+
+          voteManager.removeEventListener("voting-ended", votingEndedListener);
+          voteManager.stop();
+        },
+      };
     }, 3e3);
   }
 }
